@@ -88,6 +88,62 @@ def _cover(img: Image.Image) -> Image.Image:
     return img.crop((left, top, left + WIDTH, top + HEIGHT))
 
 
+# assets/story_template.png (1080x1920) içindeki boş metin alanları: (sol, üst, sağ, alt).
+# Etiket şeritleri (HABER BAŞLIĞI, KISA ÖZET, DETAY / KAYNAK) altında kalan bölgeler.
+TEMPLATE_TITLE_BOX = (110, 605, 975, 770)
+TEMPLATE_SUMMARY_BOX = (110, 910, 975, 1055)
+TEMPLATE_SOURCE_BOX = (125, 1690, 960, 1765)
+
+
+def _short_url(url: str) -> str:
+    return re.sub(r"^https?://(www\.)?", "", url).rstrip("/")[:60]
+
+
+def _draw_in_box(draw, text, box, start, minimum, bold, fill) -> None:
+    left, top, right, bottom = box
+    font, lines = fit_text(draw, text, right - left, bottom - top, start, minimum, bold=bold)
+    y = top
+    for line in lines:
+        draw.text((left, y), line, font=font, fill=fill)
+        y += int(font.size * 1.3)
+
+
+def _render_fallback(base: Image.Image, summary: Summary) -> Image.Image:
+    """Şablon yokken kullanılan geçici tasarım."""
+    img = base.convert("RGBA")
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    panel_top, panel_bottom = 300, 1620
+    ImageDraw.Draw(overlay).rounded_rectangle(
+        [MARGIN - 30, panel_top, WIDTH - MARGIN + 30, panel_bottom],
+        radius=48, fill=(10, 12, 28, 190))
+    img = Image.alpha_composite(img, overlay).convert("RGB")
+    draw = ImageDraw.Draw(img)
+    x, max_w = MARGIN, WIDTH - 2 * MARGIN
+    y = panel_top + 50
+    draw.text((x, 120), "AI RADAR", font=load_font(64, True), fill=(130, 210, 255))
+    draw.text((x, 200), "Yapay Zekâ Destekli Kodlama", font=load_font(34), fill=(210, 210, 230))
+    total_h = panel_bottom - panel_top - 100
+    title_h, summ_h, why_h = int(total_h * 0.30), int(total_h * 0.38), int(total_h * 0.22)
+
+    font, lines = fit_text(draw, summary.title_tr, max_w, title_h, 68, 40, bold=True)
+    for line in lines:
+        draw.text((x, y), line, font=font, fill=(255, 255, 255))
+        y += int(font.size * 1.3)
+    y = panel_top + 50 + title_h + 20
+    font, lines = fit_text(draw, summary.summary_tr, max_w, summ_h, 40, 26)
+    for line in lines:
+        draw.text((x, y), line, font=font, fill=(225, 228, 240))
+        y += int(font.size * 1.3)
+    y = panel_top + 50 + title_h + summ_h + 40
+    font, lines = fit_text(draw, "Neden önemli: " + summary.importance_tr, max_w, why_h, 34, 24)
+    for line in lines:
+        draw.text((x, y), line, font=font, fill=(130, 210, 255))
+        y += int(font.size * 1.3)
+    draw.text((x, panel_bottom - 80), f"Kaynak: {summary.source}", font=load_font(34, True),
+              fill=(255, 205, 110))
+    return img
+
+
 def render_story(summary: Summary, output_path: str, template_path: Optional[str] = None) -> str:
     """Hikâye görselini üretip kaydeder. Şablon yoksa geçici tasarım kullanılır."""
     use_template = bool(template_path) and Path(template_path).is_file()
@@ -101,44 +157,15 @@ def render_story(summary: Summary, output_path: str, template_path: Optional[str
     if not use_template:
         base = _gradient_background()
 
-    img = base.convert("RGBA")
-    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    od = ImageDraw.Draw(overlay)
-    # Şablondaki logo/robot görünür kalsın diye yalnızca metin bölgesine yarı saydam panel
-    panel_top, panel_bottom = (620, 1700) if use_template else (300, 1620)
-    od.rounded_rectangle([MARGIN - 30, panel_top, WIDTH - MARGIN + 30, panel_bottom],
-                         radius=48, fill=(10, 12, 28, 190))
-    img = Image.alpha_composite(img, overlay).convert("RGB")
-    draw = ImageDraw.Draw(img)
-
-    x, max_w = MARGIN, WIDTH - 2 * MARGIN
-    y = panel_top + 50
-    if not use_template:
-        draw.text((x, 120), "AI RADAR", font=load_font(64, True), fill=(130, 210, 255))
-        draw.text((x, 200), "Yapay Zekâ Destekli Kodlama", font=load_font(34), fill=(210, 210, 230))
-
-    total_h = panel_bottom - panel_top - 100
-    title_h, summ_h, why_h = int(total_h * 0.30), int(total_h * 0.38), int(total_h * 0.22)
-
-    font, lines = fit_text(draw, summary.title_tr, max_w, title_h, 68, 40, bold=True)
-    for line in lines:
-        draw.text((x, y), line, font=font, fill=(255, 255, 255))
-        y += int(font.size * 1.3)
-    y = panel_top + 50 + title_h + 20
-
-    font, lines = fit_text(draw, summary.summary_tr, max_w, summ_h, 40, 26)
-    for line in lines:
-        draw.text((x, y), line, font=font, fill=(225, 228, 240))
-        y += int(font.size * 1.3)
-    y = panel_top + 50 + title_h + summ_h + 40
-
-    font, lines = fit_text(draw, "Neden önemli: " + summary.importance_tr, max_w, why_h, 34, 24)
-    for line in lines:
-        draw.text((x, y), line, font=font, fill=(130, 210, 255))
-        y += int(font.size * 1.3)
-
-    draw.text((x, panel_bottom - 80), f"Kaynak: {summary.source}", font=load_font(34, True),
-              fill=(255, 205, 110))
+    if use_template:
+        img = base.convert("RGB")
+        draw = ImageDraw.Draw(img)
+        _draw_in_box(draw, summary.title_tr, TEMPLATE_TITLE_BOX, 64, 34, True, (15, 35, 70))
+        _draw_in_box(draw, summary.summary_tr, TEMPLATE_SUMMARY_BOX, 38, 24, False, (30, 50, 85))
+        _draw_in_box(draw, f"{summary.source} • {_short_url(summary.url)}", TEMPLATE_SOURCE_BOX,
+                     32, 20, False, (20, 70, 130))
+    else:
+        img = _render_fallback(base, summary)
 
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     img.save(output_path, "PNG")
