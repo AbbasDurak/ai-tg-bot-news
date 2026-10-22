@@ -58,12 +58,13 @@ Grup/kanal yayını varsayılan olarak **kapalıdır** ve açık olsa bile yaln�
 sonra çalışır.
 
 ## Hikâye şablonu
-Şablonunuzu `assets/story_template.png` olarak ekleyin (önerilen 1080×1920; farklı oranlar
-ortadan kırpılarak doldurulur). Şablon varsa logo/robot çizimi korunur; metin, alt kısımdaki
-yarı saydam panele (yaklaşık y=620–1700) yazılır, bu yüzden önemli çizimleri üst bölgede
-tutun. Şablon **yoksa** bot geçici bir gradyan tasarım üretir; var olmayan bir şablon
-kullanıyormuş gibi davranmaz. İsteğe bağlı olarak `assets/font.ttf` ve `assets/font_bold.ttf`
-ile yazı tipi değiştirilebilir.
+Şablonunuzu `assets/story_template.png` olarak ekleyin (1080×1920 / 9:16; farklı oranlar
+ortadan kırpılarak doldurulur). Kod, şablondaki **HABER BAŞLIĞI**, **KISA ÖZET** ve
+**DETAY / KAYNAK** kutularına sırasıyla başlığı, özeti ve kaynağı yazar; logo ve robot
+çizimi olduğu gibi korunur. Koordinatlar `story_renderer.py` içindeki `TEMPLATE_*_BOX`
+sabitleridir; farklı bir şablon kullanırsanız bunları güncelleyin. Şablon **yoksa** bot geçici
+bir gradyan tasarım üretir; var olmayan bir şablon kullanıyormuş gibi davranmaz.
+İsteğe bağlı olarak `assets/font.ttf` ve `assets/font_bold.ttf` ile yazı tipi değiştirilebilir.
 
 ## Veritabanı
 SQLite tabloları: `news_items`, `approvals` (pending/approved/rejected), `deliveries`
